@@ -2,14 +2,22 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from flask_cors import CORS
+import nltk
+from nltk.corpus import stopwords
 
 app = Flask(__name__)
+CORS(app)
 
-# --- Pré-processamento e vetorização (executado uma vez ao iniciar a API) ---
 products = pd.read_csv('products.csv')
 products['description'] = products['description'].fillna('').str.lower()
 
-tfidf = TfidfVectorizer(stop_words='english')
+nltk.download('stopwords')
+
+stop_words_pt = stopwords.words('portuguese')
+
+tfidf = TfidfVectorizer(stop_words=stop_words_pt)
+
 tfidf_matrix = tfidf.fit_transform(products['description'])
 
 cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
@@ -28,7 +36,6 @@ def recommend(product_id, top_n=5):
     results = products.iloc[indices][['product_id', 'product_name']]
     return results.to_dict(orient='records')
 
-# --- Rota da API ---
 @app.route('/recommend', methods=['GET'])
 def get_recommendations():
     product_id = request.args.get('product_id')
@@ -42,7 +49,11 @@ def get_recommendations():
         return jsonify(recs)
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
+    
+@app.route('/products', methods=['GET'])
+def get_all_products():
+    return jsonify(products.to_dict(orient='records'))
 
-# --- Executar a API ---
+
 if __name__ == '__main__':
     app.run(debug=True)
